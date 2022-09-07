@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Nestjs sockets</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.7.8"></script>
+    <script src="http://localhost:3001/websockets/socket.io.js"></script>
+  </head>
+  <body>
+
+    <div id="v-app">
+      <h1>{{ title }}</h1>
+      <form>
+        <input v-model="text" type="text">
+        <button type="submit" v-on:click.prevent="sendMessage">send</button>
+      </form>
+      <p>
+        <ul>
+          <li v-for="msg in messages" >{{ msg }}</li>
+        </ul>
+      </p>
+    </div>
+    
+    <script>
+      const app = new Vue({
+        el: '#v-app',
+        data: {
+          title: 'Websockets tester',
+          text: '',
+          messages: ['some msg', 'secomd msg']
+        },
+        methods: {
+          sendMessage(e) {
+            console.log(`send: ${this.text}`);
+            this.socket.emit('msgToServer', this.text);
+            this.text = '';
+          },
+          receiveMessage(msg) {
+            console.log(`recv: ${msg}`);
+            this.messages.push(msg);
+          }
+        },
+        created() {
+          this.socket = io('http://localhost:3001', { path: '/websockets' });
+          this.socket.on('msgToClient', msg => {
+            this.receiveMessage(msg);
+          })
+        }
+      })
+    </script>
+  </body>
+</html>
