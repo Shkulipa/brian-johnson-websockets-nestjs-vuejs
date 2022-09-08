@@ -26,9 +26,20 @@
           <input v-model="text" type="text">
           <button type="submit" v-on:click.prevent="sendChatMessage">send</button>
         </form>
+
+         <!-- Tabs -->
+         <div class="tab-row">
+          <button class="tab-btn" :class="{ active: activeRoom == 'general' }" v-on:click.prevent="activeRoom = 'general'">General</button>
+          <button class="tab-btn" :class="{ active: activeRoom == 'typescript' }" v-on:click.prevent="activeRoom = 'typescript'">TypeScript</button>
+          <button class="tab-btn" :class="{ active: activeRoom == 'nestjs' }" v-on:click.prevent="activeRoom = 'nestjs'">NestJS</button>
+        </div>
+        <div class="tab-row">
+            Status: {{ isMemberOfActiveRoom ? 'Joined' : 'NOT Joined' }} <button v-on:click.prevent="toggleRoomMembership">{{ isMemberOfActiveRoom ? 'Leave' : 'Join' }}</button>
+        </div>
+
         <p>
           <ul>
-            <li v-for="msg in messages">
+            <li v-for="msg in messages[activeRoom]">
               <strong>{{ msg.sender }}:</strong> {{ msg.message }}
             </li>
           </ul>
@@ -46,20 +57,46 @@
           title: 'Websockets tester',
           text: '',
           socket: { chat: null, alerts: null },
-          messages: [],
-          alerts: []
+          messages: {
+            general: [],
+            typescript: [],
+            nestjs: []
+          },
+          rooms: {
+            general: false,
+            typescript: false,
+            nestjs: false
+          },
+          alerts: [],
+          activeRoom: 'general'
         },
         methods: {
           sendChatMessage(e) {
-            this.socket.chat.emit('chatToServer', { sender: this.username, message: this.text });
-            this.text = '';
+            if (this.isMemberOfActiveRoom) {
+              this.socket.chat.emit('chatToServer', { sender: this.username, room: this.activeRoom, message: this.text });
+              this.text = "";
+            } else {
+              alert('You must join the room before sending messages!');
+            }
           },
           receiveChatMessage(msg) {
-            this.messages.push(msg);
+            this.messages[msg.room].push(msg);
           },
           receiveAlertMessage(msg) {
             this.alerts.push(msg);
           },
+          toggleRoomMembership() {
+            if (this.isMemberOfActiveRoom) {
+              this.socket.chat.emit('leaveRoom', this.activeRoom);
+            } else {
+              this.socket.chat.emit('joinRoom', this.activeRoom);
+            }
+          },
+        },
+        computed: {
+          isMemberOfActiveRoom() {
+            return this.rooms[this.activeRoom];
+          }
         },
         created() {
           this.username = prompt('Enter name');
@@ -68,6 +105,16 @@
           this.socket.chat.on('chatToClient', msg => {
             this.receiveChatMessage(msg);
           })
+          this.socket.chat.on('connect', () => {
+            this.toggleRoomMembership();
+          });
+          this.socket.chat.on('joinedRoom', (room) => {
+            console.log(room);
+            this.rooms[room] = true;
+          });
+          this.socket.chat.on('leftRoom', (room) => {
+            this.rooms[room] = false;
+          });
 
           this.socket.alerts = io('http://localhost:3000/alerts');
           this.socket.alerts.on('alertToClient', msg => {
@@ -79,3 +126,11 @@
     </script>
   </body>
 </html>
+
+<!-- 
+  .on - слушаем слушатели с сервера
+  с сервера клиентам отправляем по тоже слушатели(это как контроллеры только на стороне фронта)
+
+  .emit - отправляем на сервем по (Прослушателям(можно првоести аналог с контроллерами)) на сервер
+  они указаны в chat/chat.gatewat.ts в @SubscribeMessage('joinRoom')
+ -->
